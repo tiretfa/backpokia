@@ -3,6 +3,7 @@ from typing import Union
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from mistralai import Mistral
 
@@ -46,17 +47,23 @@ def update_item(item_id: int, item: Item):
     return {"item_name": item.name, "item_id": item_id}
 
 @app.post("/chatbot")
-def ask_chatbot(data: dict):
-    chat_response = client.chat.complete(
-        model= model,
-        messages = [
-            {
-                "role": "user",
-                "content": data['q'],
-            },
-        ],
-        stream=False
+async def ask_chatbot(data: dict):
+    async def generate():
+        chat_response = client.chat.stream(
+            model= model,
+            messages = [
+                {
+                    "role": "user",
+                    "content": data['q'],
+                },
+            ]
+        )
+        for chunk in chat_response:
+            if  chunk.data.choices[0].delta.content is not None:
+                yield chunk.data.choices[0].delta.content
+
+    return StreamingResponse(
+        generate(),
+        media_type='text/plain'
     )
-    answer = chat_response.choices[0].message.content
-    return {"answer": answer}
 
