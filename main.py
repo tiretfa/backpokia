@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Union
 
@@ -59,11 +60,17 @@ async def ask_chatbot(data: dict):
             ]
         )
         for chunk in chat_response:
-            if  chunk.data.choices[0].delta.content is not None:
-                yield chunk.data.choices[0].delta.content
+            delta = chunk.data.choices[0].delta.content
+            if  delta:
+                yield delta + '\n'
+                await asyncio.sleep(0)
 
     return StreamingResponse(
         generate(),
-        media_type='text/plain'
+        media_type='text/plain; charset=utf-8',
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # nginx
+        },
     )
 
